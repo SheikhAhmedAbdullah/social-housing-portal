@@ -491,9 +491,9 @@ async function loadFromSupabase(){
       return false;
     }
     if(cRes.data.length>0)DB.cics=cRes.data.map(mapCic);
-    if(pRes.data.length>0)DB.properties=pRes.data.map(mapProp);
-    if(tRes.data.length>0)DB.tenants=tRes.data.map(mapTenant);
-    if(fRes.data.length>0)DB.forms=fRes.data.map(mapForm);
+    DB.properties=pRes.data.map(mapProp);
+    DB.tenants=tRes.data.map(mapTenant);
+    DB.forms=fRes.data.map(mapForm);
     ONLINE=true;
     console.log('Loaded from Supabase:',DB.tenants.length,'tenants,',DB.properties.length,'properties,',DB.forms.length,'forms');
     return true;
