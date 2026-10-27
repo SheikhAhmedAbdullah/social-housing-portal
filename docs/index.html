@@ -665,14 +665,19 @@ function toggleDark(){
 }
 (function(){try{if(localStorage.getItem('cp-dark')==='1'){document.documentElement.classList.add('dark');setTimeout(()=>{const b=document.getElementById('dm-tog');if(b)b.textContent='☀️';},0);}}catch(e){}})();
 
-async function setTenantStatus(id,status){
+async function setTenantStatus(id,status,date){
   const t=DB.tenants.find(x=>x.id===id);if(!t)return;
   t.status=status;
-  if(status==='moved-out'&&!t.moveOut){t.moveOut=new Date().toISOString().slice(0,10);}
+  if(status==='moved-out'){t.moveOut=date||t.moveOut||new Date().toISOString().slice(0,10);}
   if(status==='active'){t.moveOut=null;}
   if(SB)await SB.from('tenants').update({status:t.status,move_out:t.moveOut}).eq('id',id);
   viewTenant(id);renderDash();rdots();
   toast(status==='moved-out'?'Tenant marked as moved out':'Tenant restored to active');
+}
+function promptMoveOut(id){
+  const dt=new Date().toISOString().slice(0,10);
+  const d=prompt('Move-out date:',dt);
+  if(d)setTenantStatus(id,'moved-out',d);
 }
 
 async function doLogout(){
@@ -759,7 +764,7 @@ function viewTenant(id){
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
       <div style="width:52px;height:52px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--green-text)">${t.fname[0]}${t.sname[0]}</div>
       <div style="flex:1"><h2 style="font-size:20px;font-weight:700">${t.title||''} ${t.fname} ${t.sname}${t.status==='moved-out'?' <span class="bdg-moved" style="font-size:12px;vertical-align:middle">Moved out</span>':''}</h2><p style="font-size:13px;color:var(--text2)">${c?c.name:'No CIC'} · ${p?p.addr:'No property assigned'}</p></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">${t.status==='moved-out'?`<button class="btn" style="border-color:var(--green);color:var(--green)" onclick="setTenantStatus('${id}','active')">Restore active</button>`:`<button class="btn" style="border-color:var(--orange);color:var(--orange)" onclick="setTenantStatus('${id}','moved-out')">Mark moved out</button>`}<button class="btn btn-primary" onclick="startFor('${id}','')">+ New form</button><button class="btn" onclick="exportRec('${id}')">Export TXT</button><button class="btn" onclick="exportRecPDF('${id}')">Export PDF</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${t.status==='moved-out'?`<button class="btn" style="border-color:var(--green);color:var(--green)" onclick="setTenantStatus('${id}','active')">Restore active</button>`:`<button class="btn" style="border-color:var(--orange);color:var(--orange)" onclick="promptMoveOut('${id}')">Mark moved out</button>`}<button class="btn btn-primary" onclick="startFor('${id}','')">+ New form</button><button class="btn" onclick="exportRec('${id}')">Export TXT</button><button class="btn" onclick="exportRecPDF('${id}')">Export PDF</button></div>
     </div>
     ${ov>0?`<div class="alert alert-red">⚠️ ${ov} overdue support session${ov>1?'s':''} — fill in missing records.</div>`:''}
     ${du>0?`<div class="alert alert-amber">📅 ${du} support session${du>1?'s':''} due this week.</div>`:''}
@@ -1371,6 +1376,12 @@ function subFF(status){
   const sessionDate=tmpl==='WR-13'?(document.getElementById('wr13-sd')||{}).value||null:null;
   const rec={id:gid('f'),tid,pid:t?t.propId:'',cid,tmpl,type:m?m.type:'tenant',status,created:today(),sessionDate,data:collectData()};
   DB.forms.push(rec);dbInsertForm(rec);rdots();
+  if(tmpl==='WR-20'&&status==='Filed'&&t&&t.status!=='moved-out'){
+    const exitDate=rec.data['wr20-dt']||new Date().toISOString().slice(0,10);
+    t.status='moved-out';t.moveOut=exitDate;
+    if(SB)SB.from('tenants').update({status:'moved-out',move_out:exitDate}).eq('id',tid);
+    renderDash();
+  }
   toast(status==='Filed'?`${tmpl} submitted and filed ✓`:'Draft saved');
   nav('forms',document.querySelector('[onclick*=forms]'));
 }
